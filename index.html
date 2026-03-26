@@ -18,18 +18,16 @@
         #clue-bar { flex-shrink: 0; padding: 12px; background: #334155; color: var(--accent); font-weight: 600; min-height: 55px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; text-align: center; }
         .controls { flex-shrink: 0; padding: 8px; background: var(--panel); display: flex; justify-content: center; gap: 4px; border-bottom: 1px solid #334155; }
         
-        /* Fixed Grid - No Scrolling */
         #grid-container { flex-grow: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 10px; background: #020617; }
         #grid { display: grid; gap: 1px; background: #334155; border: 2px solid #334155; margin: 0 auto; }
         
         .cell { width: 32px; height: 32px; background: white; color: black; position: relative; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 16px; }
         .cell.black { background: var(--bg); border: none; }
         
-        /* Selection Colors */
         .cell.track { background: var(--track) !important; }
         .cell.active { 
             background: var(--active-yellow) !important; 
-            box-shadow: inset 0 0 0 3px #fde047; /* Gold inner border */
+            box-shadow: inset 0 0 0 3px #fde047;
             z-index: 2; 
         }
 
@@ -41,7 +39,6 @@
         .kb-row { display: flex; justify-content: center; margin-bottom: 4px; }
         .key { margin: 2px; padding: 12px 0; background: #475569; border-radius: 5px; flex: 1; max-width: 38px; font-weight: bold; font-size: 14px; text-align: center; color: white; box-shadow: 0 3px 0 #0f172a; cursor: pointer; }
         
-        /* Static Win Screen */
         #win { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.96); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; overflow: hidden; }
         .win-title { font-size: 3rem; color: var(--accent); margin: 0; }
         .confetti { position: absolute; width: 10px; height: 10px; z-index: 2001; pointer-events: none; }
@@ -56,12 +53,12 @@
 <body>
 
 <header>
-    <select id="size-choice" onchange="initGame()">
+    <select id="size-choice" onchange="startNewOrLoad()">
         <option value="mini">Mini</option>
         <option value="medium" selected>Medium</option>
         <option value="large">Stor</option>
     </select>
-    <button class="btn-blue" onclick="initGame()">NYTT SPILL</button>
+    <button class="btn-blue" onclick="forceNewGame()">NYTT SPILL</button>
 </header>
 
 <div id="clue-bar">Trykk på en hvit rute</div>
@@ -78,7 +75,7 @@
 <div id="win">
     <h1 class="win-title">🎉 HURRA!</h1>
     <p style="margin: 20px 0; font-size: 1.2rem; color: #bae6fd;">Brettet er fullført!</p>
-    <button class="btn-blue" style="padding: 15px 30px;" onclick="initGame()">SPILL IGJEN</button>
+    <button class="btn-blue" style="padding: 15px 30px;" onclick="forceNewGame()">SPILL IGJEN</button>
 </div>
 
 <script>
@@ -1123,6 +1120,52 @@ const WORD_BANK = [
 
 let G = { size: 11, target: 10, grid: {}, words: [], user: {}, sel: null, dir: 'h', markers: {} };
 
+// --- LAGRINGSSYSTEM ---
+function saveGame() {
+    const choice = document.getElementById('size-choice').value;
+    const saveObj = {
+        grid: G.grid,
+        words: G.words,
+        user: G.user,
+        markers: G.markers,
+        size: G.size,
+        target: G.target
+    };
+    localStorage.setItem('kryssord_save_' + choice, JSON.stringify(saveObj));
+}
+
+function loadGame() {
+    const choice = document.getElementById('size-choice').value;
+    const saved = localStorage.getItem('kryssord_save_' + choice);
+    if (!saved) return false;
+    
+    const data = JSON.parse(saved);
+    G = { ...G, ...data };
+    return true;
+}
+
+function clearSave() {
+    const choice = document.getElementById('size-choice').value;
+    localStorage.removeItem('kryssord_save_' + choice);
+}
+// ----------------------
+
+function startNewOrLoad() {
+    if (loadGame()) {
+        document.getElementById('win').style.display = 'none';
+        removeConfetti();
+        render();
+        if (G.sel) selectCell(G.sel);
+    } else {
+        initGame();
+    }
+}
+
+function forceNewGame() {
+    clearSave();
+    initGame();
+}
+
 function initGame() {
     const choice = document.getElementById('size-choice').value;
     G.size = choice === 'mini' ? 10 : choice === 'medium' ? 12 : 14;
@@ -1155,7 +1198,9 @@ function initGame() {
     let count = 1;
     let starts = G.words.map(w => ({k:`${w.cells[0].r}-${w.cells[0].c}`, r:w.cells[0].r, c:w.cells[0].c})).sort((a,b)=>a.r-b.r||a.c-b.c);
     starts.forEach(s => { if(!G.markers[s.k]) G.markers[s.k] = count++; });
+    
     render();
+    saveGame();
 }
 
 function isValid(w, r, c, d) {
@@ -1192,7 +1237,9 @@ function render() {
             d.className = "cell" + (G.grid[k] ? "" : " black");
             if(G.grid[k]) {
                 if(G.markers[k]) d.innerHTML = `<span class="number">${G.markers[k]}</span>`;
-                let t = document.createElement("div"); t.id = "t-"+k; d.appendChild(t);
+                let t = document.createElement("div"); t.id = "t-"+k; 
+                t.innerText = G.user[k] || ""; // Gjenopprett bokstav
+                d.appendChild(t);
                 d.onclick = () => selectCell(k);
             }
             d.id = "c-"+k; el.appendChild(d);
@@ -1208,6 +1255,7 @@ function selectCell(k) {
     if(G.sel === k && ws.length > 1) G.dir = (G.dir === 'h' ? 'v' : 'h');
     else { G.sel = k; if(!ws.find(o => o.dir === G.dir)) G.dir = ws[0].dir; }
     updateUI();
+    saveGame(); // Lagre valgt rute
 }
 
 function getAW() { return G.words.find(w => w.dir === G.dir && w.cells.some(c => `${c.r}-${c.c}` === G.sel)); }
@@ -1220,14 +1268,15 @@ function checkActiveWord() {
     });
 }
 
-function revealLetter() { if(G.sel) { G.user[G.sel] = G.grid[G.sel]; updateUI(); checkWin(); } }
-function revealWord() { let aw = getAW(); if(aw) { aw.cells.forEach(c => G.user[`${c.r}-${c.c}`] = G.grid[`${c.r}-${c.c}`]); updateUI(); checkWin(); } }
-function resetCurrentWord() { let aw = getAW(); if(aw) { aw.cells.forEach(c => G.user[`${c.r}-${c.c}`] = ""); updateUI(); } }
+function revealLetter() { if(G.sel) { G.user[G.sel] = G.grid[G.sel]; updateUI(); checkWin(); saveGame(); } }
+function revealWord() { let aw = getAW(); if(aw) { aw.cells.forEach(c => G.user[`${c.r}-${c.c}`] = G.grid[`${c.r}-${c.c}`]); updateUI(); checkWin(); saveGame(); } }
+function resetCurrentWord() { let aw = getAW(); if(aw) { aw.cells.forEach(c => G.user[`${c.r}-${c.c}`] = ""); updateUI(); saveGame(); } }
 
 function checkWin() { 
     if(Object.keys(G.grid).length > 0 && Object.keys(G.grid).every(k => G.user[k] === G.grid[k])) {
         document.getElementById('win').style.display='flex';
         spawnConfetti();
+        clearSave(); // Slett lagring når man har vunnet
     } 
 }
 
@@ -1251,8 +1300,12 @@ function updateUI() {
     document.querySelectorAll('.cell').forEach(e => e.classList.remove('active', 'track'));
     let aw = getAW();
     if(G.sel && aw) {
-        document.getElementById("c-"+G.sel).classList.add("active");
-        aw.cells.forEach(c => document.getElementById(`c-${c.r}-${c.c}`).classList.add('track'));
+        const selEl = document.getElementById("c-"+G.sel);
+        if(selEl) selEl.classList.add("active");
+        aw.cells.forEach(c => {
+            const trackEl = document.getElementById(`c-${c.r}-${c.c}`);
+            if(trackEl) trackEl.classList.add('track');
+        });
         let headK = `${aw.cells[0].r}-${aw.cells[0].c}`;
         document.getElementById("clue-bar").innerText = `${G.markers[headK]} ${G.dir==='h'?'VANNRETT':'LODDRETT'}: ${aw.c}`;
     }
@@ -1269,7 +1322,9 @@ function handleInput(key) {
         G.user[G.sel] = key;
         if(idx < aw.cells.length - 1) G.sel = `${aw.cells[idx+1].r}-${aw.cells[idx+1].c}`;
     }
-    updateUI(); checkWin();
+    updateUI(); 
+    checkWin();
+    saveGame(); // Lagre ved hver inntasting
 }
 
 const kb = [["Q","W","E","R","T","Y","U","I","O","P","Å"],["A","S","D","F","G","H","J","K","L","Ø","Æ"],["Z","X","C","V","B","N","M","⌫"]];
@@ -1281,7 +1336,9 @@ kb.forEach(row => {
     });
     document.getElementById("keyboard").appendChild(r);
 });
-initGame();
+
+// Sjekk etter lagret spill ved oppstart
+window.onload = startNewOrLoad;
 </script>
 </body>
 </html>
