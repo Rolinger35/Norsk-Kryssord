@@ -7,31 +7,46 @@
     <style>
         :root { 
             --bg: #0f172a; --panel: #1e293b; --accent: #facc15; 
-            --track: #bae6fd; --active-blue: #3b82f6; 
+            --track: #bae6fd; /* Soft Blue for the word track */
+            --active-yellow: #fef9c3; /* Subtle Yellow for clicked box */
             --correct: #22c55e; --wrong: #ef4444; --reveal: #8b5cf6; 
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
         html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; background: var(--bg); color: white; font-family: -apple-system, system-ui, sans-serif; overflow: hidden; display: flex; flex-direction: column; }
+        
         header { flex-shrink: 0; display: flex; justify-content: space-between; padding: 10px; background: var(--panel); border-bottom: 1px solid #334155; align-items: center; }
         #clue-bar { flex-shrink: 0; padding: 12px; background: #334155; color: var(--accent); font-weight: 600; min-height: 55px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem; text-align: center; }
         .controls { flex-shrink: 0; padding: 8px; background: var(--panel); display: flex; justify-content: center; gap: 4px; border-bottom: 1px solid #334155; }
+        
+        /* Fixed Grid - No Scrolling */
         #grid-container { flex-grow: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 10px; background: #020617; }
         #grid { display: grid; gap: 1px; background: #334155; border: 2px solid #334155; margin: 0 auto; }
+        
         .cell { width: 32px; height: 32px; background: white; color: black; position: relative; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 16px; }
         .cell.black { background: var(--bg); border: none; }
+        
+        /* Selection Colors */
         .cell.track { background: var(--track) !important; }
-        .cell.active { background: #93c5fd !important; box-shadow: inset 0 0 0 3px var(--active-blue); z-index: 2; }
+        .cell.active { 
+            background: var(--active-yellow) !important; 
+            box-shadow: inset 0 0 0 3px #fde047; /* Gold inner border */
+            z-index: 2; 
+        }
+
         .cell.correct { background: var(--correct) !important; color: white; }
         .cell.wrong { background: var(--wrong) !important; color: white; }
         .number { position: absolute; top: 1px; left: 2px; font-size: 8px; color: #64748b; line-height: 1; pointer-events: none; }
+
         #keyboard { flex-shrink: 0; background: var(--panel); padding: 5px 2px 20px 2px; }
         .kb-row { display: flex; justify-content: center; margin-bottom: 4px; }
         .key { margin: 2px; padding: 12px 0; background: #475569; border-radius: 5px; flex: 1; max-width: 38px; font-weight: bold; font-size: 14px; text-align: center; color: white; box-shadow: 0 3px 0 #0f172a; cursor: pointer; }
+        
+        /* Static Win Screen */
         #win { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.96); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; overflow: hidden; }
-        .win-title { font-size: 3rem; color: var(--accent); animation: bounce 0.6s infinite alternate; }
-        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-20px); } }
+        .win-title { font-size: 3rem; color: var(--accent); margin: 0; }
         .confetti { position: absolute; width: 10px; height: 10px; z-index: 2001; pointer-events: none; }
-        button, select { padding: 8px; border: none; border-radius: 5px; font-weight: bold; }
+
+        button, select { padding: 8px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         .btn-blue { background: #2563eb; color: white; }
         .btn-green { background: #10b981; color: white; }
         .btn-purple { background: var(--reveal); color: white; }
@@ -39,6 +54,7 @@
     </style>
 </head>
 <body>
+
 <header>
     <select id="size-choice" onchange="initGame()">
         <option value="mini">Mini</option>
@@ -47,18 +63,22 @@
     </select>
     <button class="btn-blue" onclick="initGame()">NYTT SPILL</button>
 </header>
-<div id="clue-bar">Trykk på en rute</div>
+
+<div id="clue-bar">Trykk på en hvit rute</div>
 <div class="controls">
     <button class="btn-green" onclick="checkActiveWord()">SJEKK</button>
     <button class="btn-purple" onclick="revealLetter()">BOKSTAV</button>
     <button class="btn-purple" onclick="revealWord()">ORD</button>
     <button class="btn-red" onclick="resetCurrentWord()">TØM</button>
 </div>
+
 <div id="grid-container"><div id="grid"></div></div>
 <div id="keyboard"></div>
+
 <div id="win">
     <h1 class="win-title">🎉 HURRA!</h1>
-    <button class="btn-blue" style="margin-top:20px; padding: 15px 30px;" onclick="initGame()">SPILL IGJEN</button>
+    <p style="margin: 20px 0; font-size: 1.2rem; color: #bae6fd;">Brettet er fullført!</p>
+    <button class="btn-blue" style="padding: 15px 30px;" onclick="initGame()">SPILL IGJEN</button>
 </div>
 
 <script>
@@ -69,7 +89,7 @@ const WORD_BANK = [
     {w:"BÅT", c:"Flyter på sjøen"}, {w:"IS", c:"Kald og god"}, {w:"OST", c:"Gult på brødet"},
     {w:"BRØD", c:"Mat fra bakeren"}, {w:"SKO", c:"Går vi med"}, {w:"HUND", c:"Sier voff"},
     {w:"KATT", c:"Sier mjau"}, {w:"FLY", c:"Høyt i sky"}, {w:"OSLO", c:"Hovedstaden"},
-    {w:"GRØNN", c:"Gressets farge"}, {w:"RØD", c:"Julenissens farge"}, {w:"BLÅ", c:"Himmelens farge"}, {w:"BANAN", c:"Gul frukt"}, {w:"SOL", c:"Varm stjerne"}, {w:"KAFFE", c:"Sort drikk"}, 
+    {w:"KLOKKE", c:"Hva er tiden?"}, {w:"GRØNN", c:"Gressets farge"}, {w:"BANAN", c:"Gul frukt"}, {w:"SOL", c:"Varm stjerne"}, {w:"KAFFE", c:"Sort drikk"}, 
     {w:"NORGE", c:"Landet vårt"}, {w:"SKOLE", c:"Her lærer vi"}, {w:"BIL", c:"Kjøretøy"}, 
     {w:"ELG", c:"Skogens konge"}, {w:"VANN", c:"Livsviktig væske"}, {w:"TRE", c:"Har blader"},
     {w:"BÅT", c:"Flyter i vann"}, {w:"IS", c:"Veldig kald"}, {w:"OST", c:"Gult pålegg"},
@@ -1106,10 +1126,11 @@ let G = { size: 11, target: 10, grid: {}, words: [], user: {}, sel: null, dir: '
 function initGame() {
     const choice = document.getElementById('size-choice').value;
     G.size = choice === 'mini' ? 10 : choice === 'medium' ? 12 : 14;
-    G.target = choice === 'mini' ? 7 : choice === 'medium' ? 11 : 16;
+    G.target = choice === 'mini' ? 7 : choice === 'medium' ? 10 : 15;
     G.grid = {}; G.words = []; G.user = {}; G.sel = null; G.markers = {}; G.dir = 'h';
     document.getElementById('win').style.display = 'none';
-    
+    removeConfetti();
+
     let pool = [...WORD_BANK].sort(() => Math.random() - 0.5);
     forcePlace(pool.pop(), 2, 2, 'h');
 
@@ -1181,6 +1202,7 @@ function render() {
 }
 
 function selectCell(k) {
+    document.querySelectorAll('.cell').forEach(e => e.classList.remove('correct','wrong'));
     let ws = G.words.filter(w => w.cells.some(c => `${c.r}-${c.c}` === k));
     if(!ws.length) return;
     if(G.sel === k && ws.length > 1) G.dir = (G.dir === 'h' ? 'v' : 'h');
@@ -1189,6 +1211,7 @@ function selectCell(k) {
 }
 
 function getAW() { return G.words.find(w => w.dir === G.dir && w.cells.some(c => `${c.r}-${c.c}` === G.sel)); }
+
 function checkActiveWord() {
     let aw = getAW(); if(!aw) return;
     aw.cells.forEach((c, i) => {
@@ -1196,6 +1219,7 @@ function checkActiveWord() {
         el.classList.add(G.user[`${c.r}-${c.c}`] === aw.w[i] ? "correct" : "wrong");
     });
 }
+
 function revealLetter() { if(G.sel) { G.user[G.sel] = G.grid[G.sel]; updateUI(); checkWin(); } }
 function revealWord() { let aw = getAW(); if(aw) { aw.cells.forEach(c => G.user[`${c.r}-${c.c}`] = G.grid[`${c.r}-${c.c}`]); updateUI(); checkWin(); } }
 function resetCurrentWord() { let aw = getAW(); if(aw) { aw.cells.forEach(c => G.user[`${c.r}-${c.c}`] = ""); updateUI(); } }
@@ -1203,8 +1227,25 @@ function resetCurrentWord() { let aw = getAW(); if(aw) { aw.cells.forEach(c => G
 function checkWin() { 
     if(Object.keys(G.grid).length > 0 && Object.keys(G.grid).every(k => G.user[k] === G.grid[k])) {
         document.getElementById('win').style.display='flex';
+        spawnConfetti();
     } 
 }
+
+function spawnConfetti() {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    for(let i=0; i<100; i++) {
+        let c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.top = (vh/2) + 'px'; c.style.left = (vw/2) + 'px';
+        c.style.background = `hsl(${Math.random()*360}, 100%, 60%)`;
+        document.getElementById('win').appendChild(c);
+        const x = (Math.random() - 0.5) * vw * 2;
+        const y = (Math.random() - 0.5) * vh * 2;
+        c.animate([{ transform: `translate(0,0) scale(1)`, opacity: 1 }, { transform: `translate(${x}px, ${y}px) scale(0) rotate(${Math.random()*1000}deg)`, opacity: 0 }], { duration: 3000, easing: 'cubic-bezier(0, .9, .3, 1)', fill: 'forwards' });
+    }
+}
+
+function removeConfetti() { document.querySelectorAll('.confetti').forEach(c => c.remove()); }
 
 function updateUI() {
     document.querySelectorAll('.cell').forEach(e => e.classList.remove('active', 'track'));
@@ -1221,8 +1262,13 @@ function updateUI() {
 function handleInput(key) {
     let aw = getAW(); if(!aw) return;
     let idx = aw.cells.findIndex(c => `${c.r}-${c.c}` === G.sel);
-    if(key === "⌫") { G.user[G.sel] = ""; if(idx > 0) G.sel = `${aw.cells[idx-1].r}-${aw.cells[idx-1].c}`; }
-    else { G.user[G.sel] = key; if(idx < aw.cells.length - 1) G.sel = `${aw.cells[idx+1].r}-${aw.cells[idx+1].c}`; }
+    if(key === "⌫") {
+        G.user[G.sel] = "";
+        if(idx > 0) G.sel = `${aw.cells[idx-1].r}-${aw.cells[idx-1].c}`;
+    } else {
+        G.user[G.sel] = key;
+        if(idx < aw.cells.length - 1) G.sel = `${aw.cells[idx+1].r}-${aw.cells[idx+1].c}`;
+    }
     updateUI(); checkWin();
 }
 
